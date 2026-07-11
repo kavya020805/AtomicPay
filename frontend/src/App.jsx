@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Dashboard from './components/Dashboard';
 import TransferForm from './components/TransferForm';
 import Visualizer from './components/Visualizer';
@@ -8,6 +8,63 @@ function App() {
   const [activeUser, setActiveUser] = useState(null);
   const [visualizerState, setVisualizerState] = useState(0); 
   const [transferTarget, setTransferTarget] = useState(null);
+  const [isPaused, setIsPaused] = useState(false);
+
+  // Store timeout IDs so we can cancel them on pause
+  const timersRef = useRef([]);
+  // Store remaining steps so we can resume from where we paused
+  const remainingStepsRef = useRef([]);
+
+  const clearAllTimers = () => {
+    timersRef.current.forEach(id => clearTimeout(id));
+    timersRef.current = [];
+  };
+
+  const scheduleSteps = useCallback((steps) => {
+    clearAllTimers();
+    remainingStepsRef.current = [];
+    const now = Date.now();
+
+    steps.forEach(({ step, delayMs }) => {
+      const id = setTimeout(() => {
+        setVisualizerState(step);
+        // Remove this step from remaining
+        remainingStepsRef.current = remainingStepsRef.current.filter(s => s.step !== step);
+      }, delayMs);
+      timersRef.current.push(id);
+      remainingStepsRef.current.push({ step, fireAt: now + delayMs });
+    });
+  }, []);
+
+  const handlePause = useCallback(() => {
+    clearAllTimers();
+    // Recalculate remaining delays relative to now
+    const now = Date.now();
+    remainingStepsRef.current = remainingStepsRef.current.map(s => ({
+      ...s,
+      delayMs: Math.max(0, s.fireAt - now),
+    }));
+    setIsPaused(true);
+  }, []);
+
+  const handleResume = useCallback(() => {
+    setIsPaused(false);
+    const now = Date.now();
+    const remaining = remainingStepsRef.current;
+
+    clearAllTimers();
+    remaining.forEach(({ step, delayMs }) => {
+      const id = setTimeout(() => {
+        setVisualizerState(step);
+        remainingStepsRef.current = remainingStepsRef.current.filter(s => s.step !== step);
+      }, delayMs);
+      timersRef.current.push(id);
+      // Update fireAt for potential re-pause
+      remainingStepsRef.current = remainingStepsRef.current.map(s =>
+        s.step === step ? { ...s, fireAt: now + delayMs } : s
+      );
+    });
+  }, []);
 
   const fetchUsers = async () => {
     try {
@@ -31,13 +88,16 @@ function App() {
   const handleTransfer = async (receiverId, amount) => {
     const receiver = users.find(u => u.id === parseInt(receiverId));
     setTransferTarget(receiver);
+    setIsPaused(false);
     setVisualizerState(1); 
     
-    // Always show the full animation with delay
-    setTimeout(() => setVisualizerState(2), 600);
-    setTimeout(() => setVisualizerState(3), 1400);
-    setTimeout(() => setVisualizerState(4), 2200);
-    setTimeout(() => setVisualizerState(5), 3000);
+    // Schedule the animation steps
+    scheduleSteps([
+      { step: 2, delayMs: 600 },
+      { step: 3, delayMs: 1400 },
+      { step: 4, delayMs: 2200 },
+      { step: 5, delayMs: 3000 },
+    ]);
 
     try {
       const res = await fetch('http://localhost:3000/api/transfer?delay=true', {
@@ -56,19 +116,27 @@ function App() {
         await fetchUsers();
       } else {
         alert('Transfer Failed: ' + data.error);
+        clearAllTimers();
         setVisualizerState(0);
         setTransferTarget(null);
+        setIsPaused(false);
       }
     } catch (err) {
       alert('Error connecting to server');
+      clearAllTimers();
       setVisualizerState(0);
       setTransferTarget(null);
+      setIsPaused(false);
     }
     
-    setTimeout(() => {
+    // Reset after animation completes (only if not paused)
+    const resetId = setTimeout(() => {
       setVisualizerState(0);
       setTransferTarget(null);
-    }, 4000);
+      setIsPaused(false);
+    }, 6000);
+    timersRef.current.push(resetId);
+    remainingStepsRef.current.push({ step: 0, fireAt: Date.now() + 6000 });
   };
 
   return (
@@ -109,6 +177,9 @@ function App() {
             step={visualizerState} 
             senderName={activeUser?.username || 'Sender'}
             receiverName={transferTarget?.username || 'Receiver'}
+            isPaused={isPaused}
+            onPause={handlePause}
+            onResume={handleResume}
           />
         </div>
       </div>

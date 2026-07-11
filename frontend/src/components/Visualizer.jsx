@@ -10,8 +10,13 @@ import React, { useMemo } from 'react';
  *   step            0 = idle, 1 = initiated, 2 = lock acquired, 3 = debit, 4 = credit, 5 = committed
  *   senderName      display name of the sender   (falls back to "Sender")
  *   receiverName    display name of the receiver  (falls back to "Receiver")
+ *   isPaused        boolean — is the animation currently paused
+ *   onPause         callback to pause the animation
+ *   onResume        callback to resume the animation
  */
-export default function Visualizer({ step, senderName = 'Sender', receiverName = 'Receiver' }) {
+export default function Visualizer({ step, senderName = 'Sender', receiverName = 'Receiver', isPaused = false, onPause, onResume }) {
+
+  const isAnimating = step > 0 && step < 5;
 
   // ── SQL lines that appear progressively ──
   const sqlLines = useMemo(() => [
@@ -283,19 +288,45 @@ export default function Visualizer({ step, senderName = 'Sender', receiverName =
         </div>
       </div>
 
-      {/* ── Status Bar ── */}
-      <div className="px-5 py-2">
-        <div className={`text-center text-xs font-mono py-1.5 rounded transition-all duration-500 ${
+      {/* ── Status Bar with Pause/Resume ── */}
+      <div className="px-5 py-2 pb-4">
+        <div className={`flex items-center gap-2 text-xs font-mono py-1.5 px-3 rounded transition-all duration-500 ${
           step === 0 ? 'text-neutral-600' :
           step < 5   ? 'text-neutral-400 bg-neutral-900/50' :
                        'text-emerald-400 bg-emerald-950/30'
         }`}>
-          {step === 0 && 'IDLE — Awaiting transaction'}
-          {step === 1 && '⏳ Initiating transfer...'}
-          {step === 2 && '🔒 Row-level lock acquired — SELECT FOR UPDATE'}
-          {step === 3 && '💸 Debiting sender balance...'}
-          {step === 4 && '💰 Crediting receiver balance...'}
-          {step === 5 && '✓  Transaction committed successfully'}
+
+          {/* Pause / Resume button */}
+          {(isAnimating || isPaused) && (
+            <button
+              onClick={isPaused ? onResume : onPause}
+              className="shrink-0 w-6 h-6 flex items-center justify-center rounded border border-neutral-700 bg-neutral-900 hover:bg-neutral-800 text-white transition-colors"
+              title={isPaused ? 'Resume' : 'Pause'}
+            >
+              {isPaused ? (
+                /* Play icon */
+                <svg width="10" height="12" viewBox="0 0 10 12" fill="currentColor">
+                  <polygon points="0,0 10,6 0,12" />
+                </svg>
+              ) : (
+                /* Pause icon */
+                <svg width="10" height="12" viewBox="0 0 10 12" fill="currentColor">
+                  <rect x="0" y="0" width="3" height="12" />
+                  <rect x="7" y="0" width="3" height="12" />
+                </svg>
+              )}
+            </button>
+          )}
+
+          <span className="flex-1 text-center">
+            {isPaused && '⏸  PAUSED — Read the queries above'}
+            {!isPaused && step === 0 && 'IDLE — Awaiting transaction'}
+            {!isPaused && step === 1 && '⏳ Initiating transfer...'}
+            {!isPaused && step === 2 && '🔒 Row-level lock acquired — SELECT FOR UPDATE'}
+            {!isPaused && step === 3 && '💸 Debiting sender balance...'}
+            {!isPaused && step === 4 && '💰 Crediting receiver balance...'}
+            {!isPaused && step === 5 && '✓  Transaction committed successfully'}
+          </span>
         </div>
       </div>
     </div>
