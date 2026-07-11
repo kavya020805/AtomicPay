@@ -8,12 +8,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 export default function TransferForm({ users, onTransfer, isProcessing }) {
   const [receiverId, setReceiverId] = useState('');
   const [amount, setAmount] = useState('');
+  const [lastIdempotencyKey, setLastIdempotencyKey] = useState(null);
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!receiverId || !amount) return;
-    onTransfer(receiverId, amount);
+    
+    // Generate a fresh Idempotency Key for a normal transfer
+    const newKey = crypto.randomUUID();
+    setLastIdempotencyKey(newKey);
+    onTransfer(receiverId, amount, newKey);
+    
     setAmount('');
+  };
+
+  const handleRetry = () => {
+    if (!receiverId || !lastIdempotencyKey || isProcessing) return;
+    // Send exact same request with the exact same Idempotency Key
+    onTransfer(receiverId, amount || '100', lastIdempotencyKey);
   };
 
   return (
@@ -53,9 +65,23 @@ export default function TransferForm({ users, onTransfer, isProcessing }) {
             />
           </div>
 
-          <Button type="submit" disabled={isProcessing} className="w-full bg-white text-black hover:bg-neutral-200">
-            {isProcessing ? 'Processing Transaction...' : 'Confirm Transfer'}
-          </Button>
+          <div className="flex flex-col gap-2">
+            <Button type="submit" disabled={isProcessing} className="w-full bg-white text-black hover:bg-neutral-200">
+              {isProcessing ? 'Processing Transaction...' : 'Confirm Transfer'}
+            </Button>
+            
+            {lastIdempotencyKey && (
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={handleRetry}
+                disabled={isProcessing}
+                className="w-full border-neutral-700 bg-transparent text-neutral-400 hover:bg-neutral-900 hover:text-white text-xs"
+              >
+                Simulate Network Retry (Double-Click)
+              </Button>
+            )}
+          </div>
 
         </form>
       </CardContent>

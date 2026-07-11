@@ -16,6 +16,7 @@ CREATE TABLE transactions (
     receiver_id INTEGER REFERENCES users(id),
     amount_in_cents INTEGER NOT NULL CHECK (amount_in_cents > 0),
     status VARCHAR(20) NOT NULL,
+    idempotency_key UUID UNIQUE,
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

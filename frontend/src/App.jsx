@@ -9,6 +9,7 @@ function App() {
   const [activeUser, setActiveUser] = useState(null);
   const [visualizerState, setVisualizerState] = useState(0); 
   const [transferTarget, setTransferTarget] = useState(null);
+  const [transferAmount, setTransferAmount] = useState(null);
   const [isPaused, setIsPaused] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
@@ -30,6 +31,10 @@ function App() {
     steps.forEach(({ step, delayMs }) => {
       const id = setTimeout(() => {
         setVisualizerState(step);
+        if (step === 0) {
+          setTransferTarget(null);
+          setIsPaused(false);
+        }
         // Remove this step from remaining
         remainingStepsRef.current = remainingStepsRef.current.filter(s => s.step !== step);
       }, delayMs);
@@ -58,6 +63,10 @@ function App() {
     remaining.forEach(({ step, delayMs }) => {
       const id = setTimeout(() => {
         setVisualizerState(step);
+        if (step === 0) {
+          setTransferTarget(null);
+          setIsPaused(false);
+        }
         remainingStepsRef.current = remainingStepsRef.current.filter(s => s.step !== step);
       }, delayMs);
       timersRef.current.push(id);
@@ -80,17 +89,19 @@ function App() {
       }
       setRefreshTrigger(prev => prev + 1);
     } catch (err) {
-      console.error(err);
+      console.error('Failed to fetch users', err);
     }
   };
 
   useEffect(() => {
     fetchUsers();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleTransfer = async (receiverId, amount) => {
+  const handleTransfer = async (receiverId, amount, idempotencyKey) => {
     const receiver = users.find(u => u.id === parseInt(receiverId));
     setTransferTarget(receiver);
+    setTransferAmount(amount);
     setIsPaused(false);
     setVisualizerState(1); 
     
@@ -100,12 +111,16 @@ function App() {
       { step: 3, delayMs: 1400 },
       { step: 4, delayMs: 2200 },
       { step: 5, delayMs: 3000 },
+      { step: 0, delayMs: 6000 },
     ]);
 
     try {
       const res = await fetch('http://localhost:3000/api/transfer?delay=true', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Idempotency-Key': idempotencyKey
+        },
         body: JSON.stringify({
           senderId: activeUser.id,
           receiverId: parseInt(receiverId),
@@ -116,30 +131,28 @@ function App() {
       const data = await res.json();
 
       if (res.ok) {
+        if (data.isIdempotent) {
+          setVisualizerState(6);
+          scheduleSteps([{ step: 0, delayMs: 6000 }]);
+        }
         await fetchUsers();
       } else {
         alert('Transfer Failed: ' + data.error);
         clearAllTimers();
         setVisualizerState(0);
         setTransferTarget(null);
+        setTransferAmount(null);
         setIsPaused(false);
       }
     } catch (err) {
+      console.error(err);
       alert('Error connecting to server');
       clearAllTimers();
       setVisualizerState(0);
       setTransferTarget(null);
+      setTransferAmount(null);
       setIsPaused(false);
     }
-    
-    // Reset after animation completes (only if not paused)
-    const resetId = setTimeout(() => {
-      setVisualizerState(0);
-      setTransferTarget(null);
-      setIsPaused(false);
-    }, 6000);
-    timersRef.current.push(resetId);
-    remainingStepsRef.current.push({ step: 0, fireAt: Date.now() + 6000 });
   };
 
   return (
@@ -181,6 +194,9 @@ function App() {
             step={visualizerState} 
             senderName={activeUser?.username || 'Sender'}
             receiverName={transferTarget?.username || 'Receiver'}
+            senderId={activeUser?.id}
+            receiverId={transferTarget?.id}
+            amount={transferAmount}
             isPaused={isPaused}
             onPause={handlePause}
             onResume={handleResume}

@@ -14,60 +14,62 @@ import React, { useMemo } from 'react';
  *   onPause         callback to pause the animation
  *   onResume        callback to resume the animation
  */
-export default function Visualizer({ step, senderName = 'Sender', receiverName = 'Receiver', isPaused = false, onPause, onResume }) {
+export default function Visualizer({ 
+  step, 
+  senderName = 'Sender', 
+  receiverName = 'Receiver', 
+  senderId,
+  receiverId,
+  amount,
+  isPaused = false, 
+  onPause, 
+  onResume 
+}) {
 
-  const isAnimating = step > 0 && step < 5;
+  const isAnimating = (step > 0 && step < 5) || step === 6;
 
   // ── SQL lines that appear progressively ──
-  const sqlLines = useMemo(() => [
-    { minStep: 2, text: 'BEGIN;' },
-    { minStep: 2, text: 'SELECT * FROM users WHERE id IN ($1,$2)' },
-    { minStep: 2, text: '  FOR UPDATE;' },
-    { minStep: 3, text: `UPDATE users SET balance = balance - $amt` },
-    { minStep: 3, text: `  WHERE id = $sender;` },
-    { minStep: 4, text: `UPDATE users SET balance = balance + $amt` },
-    { minStep: 4, text: `  WHERE id = $receiver;` },
-    { minStep: 5, text: 'COMMIT;' },
-  ], []);
+  const sqlLines = useMemo(() => {
+    // Determine lock order just like the backend does to prevent deadlocks
+    const firstId = senderId && receiverId ? Math.min(senderId, receiverId) : '$1';
+    const secondId = senderId && receiverId ? Math.max(senderId, receiverId) : '$2';
+    const sId = senderId || '$sender';
+    const rId = receiverId || '$receiver';
+    const amt = amount ? (amount * 100) : '$amt'; // amount in cents for postgres
+
+    return [
+      { minStep: 2, text: 'BEGIN;' },
+      { minStep: 2, text: `SELECT * FROM users WHERE id IN (${firstId}, ${secondId})` },
+      { minStep: 2, text: '  FOR UPDATE;' },
+      { minStep: 3, text: `UPDATE users SET balance_in_cents = balance_in_cents - ${amt}` },
+      { minStep: 3, text: `  WHERE id = ${sId};` },
+      { minStep: 4, text: `UPDATE users SET balance_in_cents = balance_in_cents + ${amt}` },
+      { minStep: 4, text: `  WHERE id = ${rId};` },
+      { minStep: 5, text: 'COMMIT;' },
+    ];
+  }, [senderId, receiverId, amount]);
 
   // ── Node state helper ──
   const nodeState = (activeAt, doneAt) => {
+    if (step === 6) return 'blocked';
     if (step >= doneAt) return 'done';
     if (step >= activeAt) return 'active';
     return 'idle';
   };
 
   const senderState   = nodeState(1, 5);
-  const dbState       = nodeState(2, 5);
-  const receiverState = nodeState(4, 5);
+  const dbState       = step === 6 ? 'blocked' : nodeState(2, 5);
+  const receiverState = step === 6 ? 'idle' : nodeState(4, 5);
 
   // ── Style maps ──
-  const ringColor = { idle: 'border-neutral-800', active: 'border-white', done: 'border-emerald-500' };
-  const textColor = { idle: 'text-neutral-600',   active: 'text-white',   done: 'text-emerald-400'  };
+  const ringColor = { idle: 'border-neutral-800', active: 'border-white', done: 'border-emerald-500', blocked: 'border-blue-500' };
+  const textColor = { idle: 'text-neutral-600',   active: 'text-white',   done: 'text-emerald-400',   blocked: 'text-blue-400'  };
   const glowStyle = {
     idle: {},
     active: { animation: 'node-glow 2s ease-in-out infinite' },
     done:   { animation: 'node-success 2s ease-in-out infinite' },
+    blocked: { boxShadow: '0 0 15px rgba(59, 130, 246, 0.4)' }
   };
-
-  // ── Packet (traveling dot) ──
-  const Packet = ({ visible, duration = '0.7s' }) => (
-    <div className="absolute left-1/2 -translate-x-1/2 w-full h-full pointer-events-none" style={{ overflow: 'visible' }}>
-      {visible && (
-        <div
-          className="absolute left-1/2 -translate-x-1/2"
-          style={{
-            width: 10,
-            height: 10,
-            borderRadius: '50%',
-            background: 'white',
-            boxShadow: '0 0 10px 3px rgba(255,255,255,0.5)',
-            animation: `packet-glow-pulse 0.6s ease-in-out infinite, packet-down ${duration} ease-in-out forwards`,
-          }}
-        />
-      )}
-    </div>
-  );
 
   return (
     <div className="h-full bg-black border border-neutral-800 rounded-lg flex flex-col overflow-hidden">
@@ -101,9 +103,14 @@ export default function Visualizer({ step, senderName = 'Sender', receiverName =
                   DEBITED
                 </span>
               )}
-              {step >= 5 && (
+              {step >= 5 && step !== 6 && (
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-900/40 text-emerald-400 border border-emerald-800/50" style={{ animation: 'fade-in-up 0.3s ease-out' }}>
                   DONE
+                </span>
+              )}
+              {step === 6 && (
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue-900/40 text-blue-400 border border-blue-800/50" style={{ animation: 'fade-in-up 0.3s ease-out' }}>
+                  IGNORED
                 </span>
               )}
             </div>
@@ -175,12 +182,17 @@ export default function Visualizer({ step, senderName = 'Sender', receiverName =
                     LOCKED
                   </span>
                 )}
-                {step >= 5 && (
+                {step >= 5 && step !== 6 && (
                   <span className="flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-900/40 text-emerald-400 border border-emerald-800/50" style={{ animation: 'success-checkmark 0.4s ease-out' }}>
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="20 6 9 17 4 12" />
                     </svg>
                     COMMITTED
+                  </span>
+                )}
+                {step === 6 && (
+                  <span className="flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue-900/40 text-blue-400 border border-blue-800/50" style={{ animation: 'success-checkmark 0.4s ease-out' }}>
+                    CACHED
                   </span>
                 )}
               </div>
@@ -189,7 +201,14 @@ export default function Visualizer({ step, senderName = 'Sender', receiverName =
             {/* SQL Terminal */}
             <div className="p-3">
               <div className="bg-black rounded-md border border-neutral-800/60 p-3 font-mono text-[11px] leading-relaxed min-h-[120px] overflow-hidden">
-                {step < 2 ? (
+                {step === 6 ? (
+                  <div className="space-y-2">
+                    <div className="text-blue-400">{'>'} Idempotency-Key matched existing record.</div>
+                    <div className="text-neutral-400">  ↳ Bypassing transaction...</div>
+                    <div className="text-neutral-400">  ↳ Returning previous state...</div>
+                    <div className="text-blue-400">{'>'} Duplicate safely ignored.</div>
+                  </div>
+                ) : step < 2 ? (
                   <div className="flex items-center gap-2 text-neutral-600">
                     <span className="text-neutral-700">$</span>
                     <span>Waiting for transaction...</span>
@@ -326,6 +345,7 @@ export default function Visualizer({ step, senderName = 'Sender', receiverName =
             {!isPaused && step === 3 && '💸 Debiting sender balance...'}
             {!isPaused && step === 4 && '💰 Crediting receiver balance...'}
             {!isPaused && step === 5 && '✓  Transaction committed successfully'}
+            {!isPaused && step === 6 && '🛡️ IDEMPOTENT MATCH — Ignored duplicate transfer'}
           </span>
         </div>
       </div>

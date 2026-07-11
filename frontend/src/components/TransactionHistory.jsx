@@ -49,7 +49,7 @@ export default function TransactionHistory({ user, refreshTrigger }) {
             {transactions.map((tx) => {
               const isOutgoing = tx.sender === user.username;
               return (
-                <div key={tx.id} className="flex items-center justify-between p-3 rounded-lg border border-neutral-800/50 bg-black/40">
+                <div key={tx.id} className="flex items-center justify-between p-3 rounded-lg border border-neutral-800/50 bg-black/40 hover:bg-neutral-900/50 transition-colors">
                   <div className="flex items-center gap-3">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isOutgoing ? 'bg-neutral-900 text-neutral-400' : 'bg-emerald-950/30 text-emerald-500'}`}>
                       {isOutgoing ? <ArrowUpRight size={16} /> : <ArrowDownLeft size={16} />}
@@ -58,11 +58,16 @@ export default function TransactionHistory({ user, refreshTrigger }) {
                       <p className="text-sm font-medium text-neutral-200">
                         {isOutgoing ? `To ${tx.receiver}` : `From ${tx.sender}`}
                       </p>
-                      <p className="text-xs text-neutral-500">{formatDate(tx.timestamp)}</p>
+                      <p className="text-[10px] text-neutral-500 mt-0.5 font-mono">
+                        ID: {tx.idempotency_key ? tx.idempotency_key.split('-')[0] : `#${tx.id}`} <span className="mx-1">•</span> <span className="uppercase text-[9px] font-sans font-semibold tracking-wider text-neutral-400">{tx.status}</span>
+                      </p>
                     </div>
                   </div>
-                  <div className={`text-sm font-bold ${isOutgoing ? 'text-neutral-300' : 'text-emerald-400'}`}>
-                    {isOutgoing ? '-' : '+'}{formatMoney(tx.amount_in_cents)}
+                  <div className="text-right">
+                    <p className={`text-sm font-bold ${isOutgoing ? 'text-neutral-300' : 'text-emerald-400'}`}>
+                      {isOutgoing ? '-' : '+'}{formatMoney(tx.amount_in_cents)}
+                    </p>
+                    <p className="text-[10px] text-neutral-500 mt-0.5">{formatDate(tx.timestamp)}</p>
                   </div>
                 </div>
               );

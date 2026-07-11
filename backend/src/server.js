@@ -26,7 +26,7 @@ app.get('/api/transactions/:userId', async (req, res) => {
   const { userId } = req.params;
   try {
     const { rows } = await db.query(`
-      SELECT t.id, t.amount_in_cents, t.status, t.timestamp,
+      SELECT t.id, t.amount_in_cents, t.status, t.timestamp, t.idempotency_key,
              u1.username AS sender, u2.username AS receiver
       FROM transactions t
       LEFT JOIN users u1 ON t.sender_id = u1.id
@@ -44,6 +44,7 @@ app.get('/api/transactions/:userId', async (req, res) => {
 // POST transfer money with ACID Transactions and Row-Level Locking
 app.post('/api/transfer', async (req, res) => {
   const { senderId, receiverId, amount } = req.body;
+  const idempotencyKey = req.headers['idempotency-key'];
 
   if (!senderId || !receiverId || !amount) {
     return res.status(400).json({ error: 'Missing required fields' });
@@ -55,6 +56,19 @@ app.post('/api/transfer', async (req, res) => {
 
   if (amount <= 0) {
     return res.status(400).json({ error: 'Amount must be greater than zero' });
+  }
+
+  // Fast-path Idempotency Check
+  if (idempotencyKey) {
+    const existingTx = await db.query('SELECT * FROM transactions WHERE idempotency_key = $1', [idempotencyKey]);
+    if (existingTx.rows.length > 0) {
+      console.log(`Idempotency hit! Returning previous result for key ${idempotencyKey}`);
+      return res.json({ 
+        message: 'Transfer successful (Idempotency cache hit)', 
+        amount: existingTx.rows[0].amount_in_cents / 100,
+        isIdempotent: true 
+      });
+    }
   }
 
   // Get a dedicated client from the pool for our transaction
@@ -95,10 +109,10 @@ app.post('/api/transfer', async (req, res) => {
     // Add to receiver
     await client.query('UPDATE users SET balance_in_cents = balance_in_cents + $1 WHERE id = $2', [amount, receiverId]);
 
-    // Record the transaction
+    // Record the transaction with Idempotency Key
     await client.query(
-      'INSERT INTO transactions (sender_id, receiver_id, amount_in_cents, status) VALUES ($1, $2, $3, $4)',
-      [senderId, receiverId, amount, 'completed']
+      'INSERT INTO transactions (sender_id, receiver_id, amount_in_cents, status, idempotency_key) VALUES ($1, $2, $3, $4, $5)',
+      [senderId, receiverId, amount, 'completed', idempotencyKey]
     );
 
     await client.query('COMMIT');
@@ -106,6 +120,17 @@ app.post('/api/transfer', async (req, res) => {
 
   } catch (err) {
     await client.query('ROLLBACK');
+    
+    // Postgres Unique Violation error code is '23505'
+    if (err.code === '23505' && err.constraint === 'transactions_idempotency_key_key') {
+      console.log('Concurrent retry detected and blocked by database UNIQUE constraint.');
+      return res.json({ 
+        message: 'Transfer successful (Idempotency cache hit)', 
+        amount: req.body.amount,
+        isIdempotent: true 
+      });
+    }
+
     console.error('Transaction failed, rolled back:', err);
     res.status(500).json({ error: 'Transaction failed' });
   } finally {

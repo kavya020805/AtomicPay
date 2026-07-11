@@ -14,6 +14,7 @@ Make the app visually explain the complex backend problems it is solving. This i
 - [ ] Add a "Simulate Network Delay" toggle on the backend to slow down the process so the user can literally watch the lock happen and try to send another transaction at the same time to see it get queued/rejected.
 - [ ] Polish the UI with professional aesthetics.
 - [ ] Write a final project summary in the README to help guide interview conversations.
+- [x] **Bonus: Idempotent API Requests:** Ensure that duplicate requests (e.g., from network retries) are identified via an `Idempotency-Key` and blocked from double-charging using Postgres `UNIQUE` constraints and fast-path checks.
 
 ## Definition of Done
 - The app looks incredibly professional and polished.
