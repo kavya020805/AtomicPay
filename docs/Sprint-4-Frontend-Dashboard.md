@@ -1,11 +1,11 @@
-# Sprint 4: Frontend Foundations 🎨
+# Sprint 4: Frontend Foundations
 
 ## Goal
 Build a modern, responsive UI where users can view their balance and initiate transfers.
 
 ## Tasks
 - [ ] Initialize a React app (e.g., using Vite) in the `frontend` directory.
-- [ ] Create a "User Selector" (since we don't have full auth, just a dropdown to "Login as Alice/Bob").
+- [ ] Create a "User Selector" (since we don't have full auth, just a dropdown to switch between test users).
 - [ ] Create the Main Dashboard showing current balance (convert cents back to dollars for display).
 - [ ] Create a list view showing transaction history (incoming vs outgoing).
 - [ ] Create a simple "Send Money" form with a recipient dropdown and amount input.

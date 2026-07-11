@@ -1,4 +1,4 @@
-# Sprint 3: The Transaction Engine (The Secret Sauce) 🧠
+# Sprint 3: The Transaction Engine (Core Feature)
 
 ## Goal
 Build the critical P2P transfer logic. This is the main feature of the app and the primary talking point for interviews.

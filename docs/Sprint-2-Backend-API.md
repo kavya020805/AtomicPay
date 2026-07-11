@@ -1,4 +1,4 @@
-# Sprint 2: Core Backend API ⚙️
+# Sprint 2: Core Backend API
 
 ## Goal
 Set up the Express.js server and build basic CRUD operations for users.
