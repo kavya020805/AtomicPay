@@ -80,7 +80,8 @@ function App() {
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch('http://localhost:3000/api/users');
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const res = await fetch(`${API_URL}/api/users`);
       const data = await res.json();
       setUsers(data);
       if (!activeUser && data.length > 0) {
@@ -112,7 +113,8 @@ function App() {
     ]);
 
     try {
-      const res = await fetch('http://localhost:3000/api/transfer?delay=true', {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const res = await fetch(`${API_URL}/api/transfer?delay=true`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',

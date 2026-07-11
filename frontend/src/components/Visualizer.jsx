@@ -14,16 +14,16 @@ import React, { useMemo } from 'react';
  *   onPause         callback to pause the animation
  *   onResume        callback to resume the animation
  */
-export default function Visualizer({ 
-  step, 
-  senderName = 'Sender', 
-  receiverName = 'Receiver', 
+export default function Visualizer({
+  step,
+  senderName = 'Sender',
+  receiverName = 'Receiver',
   senderId,
   receiverId,
   amount,
-  isPaused = false, 
-  onPause, 
-  onResume 
+  isPaused = false,
+  onPause,
+  onResume
 }) {
 
   const isAnimating = (step > 0 && step < 5) || step === 6;
@@ -57,17 +57,17 @@ export default function Visualizer({
     return 'idle';
   };
 
-  const senderState   = nodeState(1, 5);
-  const dbState       = step === 6 ? 'blocked' : nodeState(2, 5);
+  const senderState = nodeState(1, 5);
+  const dbState = step === 6 ? 'blocked' : nodeState(2, 5);
   const receiverState = step === 6 ? 'idle' : nodeState(4, 5);
 
   // ── Style maps ──
   const ringColor = { idle: 'border-neutral-800', active: 'border-white', done: 'border-emerald-500', blocked: 'border-blue-500' };
-  const textColor = { idle: 'text-neutral-600',   active: 'text-white',   done: 'text-emerald-400',   blocked: 'text-blue-400'  };
+  const textColor = { idle: 'text-neutral-600', active: 'text-white', done: 'text-emerald-400', blocked: 'text-blue-400' };
   const glowStyle = {
     idle: {},
     active: { animation: 'node-glow 2s ease-in-out infinite' },
-    done:   { animation: 'node-success 2s ease-in-out infinite' },
+    done: { animation: 'node-success 2s ease-in-out infinite' },
     blocked: { boxShadow: '0 0 15px rgba(59, 130, 246, 0.4)' }
   };
 
@@ -198,12 +198,12 @@ export default function Visualizer({
             <div className="p-3 relative overflow-hidden">
               {/* Scanning Laser Effect during active processing */}
               {step >= 2 && step < 5 && (
-                <div 
-                  className="absolute left-0 right-0 h-[2px] bg-emerald-500/50 blur-[1px] pointer-events-none z-10" 
+                <div
+                  className="absolute left-0 right-0 h-[2px] bg-emerald-500/50 blur-[1px] pointer-events-none z-10"
                   style={{ animation: 'scan-line 2s linear infinite', boxShadow: '0 0 8px 2px rgba(16, 185, 129, 0.3)' }}
                 />
               )}
-              
+
               <div className="bg-black/80 rounded-lg border border-neutral-800/80 p-3 font-mono text-[11px] leading-relaxed min-h-[120px] relative">
                 {step === 6 ? (
                   <div className="space-y-2">
@@ -307,11 +307,10 @@ export default function Visualizer({
 
       {/* ── Status Bar with Pause/Resume ── */}
       <div className="px-5 py-2 pb-4">
-        <div className={`flex items-center gap-2 text-xs font-mono py-1.5 px-3 rounded transition-all duration-500 ${
-          step === 0 ? 'text-neutral-600' :
-          step < 5   ? 'text-neutral-400 bg-neutral-900/50' :
-                       'text-emerald-400 bg-emerald-950/30'
-        }`}>
+        <div className={`flex items-center gap-2 text-xs font-mono py-1.5 px-3 rounded transition-all duration-500 ${step === 0 ? 'text-neutral-600' :
+            step < 5 ? 'text-neutral-400 bg-neutral-900/50' :
+              'text-emerald-400 bg-emerald-950/30'
+          }`}>
 
           {/* Pause / Resume button */}
           {(isAnimating || isPaused) && (

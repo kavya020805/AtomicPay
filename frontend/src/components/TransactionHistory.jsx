@@ -9,7 +9,8 @@ export default function TransactionHistory({ user, refreshTrigger }) {
     if (!user) return;
     const fetchTransactions = async () => {
       try {
-        const res = await fetch(`http://localhost:3000/api/transactions/${user.id}`);
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+        const res = await fetch(`${API_URL}/api/transactions/${user.id}`);
         const data = await res.json();
         setTransactions(data);
       } catch (err) {
