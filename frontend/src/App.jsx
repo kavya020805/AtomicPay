@@ -143,10 +143,11 @@ function App() {
   };
 
   return (
-    <div className="dark min-h-screen bg-black text-white flex items-center justify-center p-8 font-sans">
-      <div className="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 gap-8">
-        
-        {/* Left Column */}
+    <div className="dark min-h-screen bg-black text-white p-8 font-sans flex flex-col items-center pt-12">
+      <div className="w-full max-w-5xl space-y-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          
+          {/* Left Column */}
         <div className="space-y-6">
           <h1 className="text-4xl font-extrabold tracking-tight">AtomicPay</h1>
           
@@ -172,10 +173,6 @@ function App() {
             onTransfer={handleTransfer}
             isProcessing={visualizerState > 0 && visualizerState < 5}
           />
-
-          {activeUser && (
-            <TransactionHistory user={activeUser} refreshTrigger={refreshTrigger} />
-          )}
         </div>
 
         {/* Right Column */}
@@ -188,7 +185,13 @@ function App() {
             onPause={handlePause}
             onResume={handleResume}
           />
+          </div>
         </div>
+
+        {/* Bottom Full-Width Row */}
+        {activeUser && (
+          <TransactionHistory user={activeUser} refreshTrigger={refreshTrigger} />
+        )}
       </div>
     </div>
   );
