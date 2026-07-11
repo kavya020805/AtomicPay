@@ -8,6 +8,7 @@ function App() {
   const [activeUser, setActiveUser] = useState(null);
   const [visualizerState, setVisualizerState] = useState(0); 
   const [isDelayEnabled, setIsDelayEnabled] = useState(false);
+  const [transferTarget, setTransferTarget] = useState(null);
 
   const fetchUsers = async () => {
     try {
@@ -29,15 +30,17 @@ function App() {
   }, []);
 
   const handleTransfer = async (receiverId, amount) => {
+    const receiver = users.find(u => u.id === parseInt(receiverId));
+    setTransferTarget(receiver);
     setVisualizerState(1); 
     
     if (isDelayEnabled) {
-        setTimeout(() => setVisualizerState(2), 800);
-        setTimeout(() => setVisualizerState(3), 1600);
+        setTimeout(() => setVisualizerState(2), 600);
+        setTimeout(() => setVisualizerState(3), 1400);
         setTimeout(() => setVisualizerState(4), 2200);
-        setTimeout(() => setVisualizerState(5), 2800);
+        setTimeout(() => setVisualizerState(5), 3000);
     } else {
-        setVisualizerState(2);
+        setTimeout(() => setVisualizerState(2), 500);
     }
 
     try {
@@ -53,26 +56,33 @@ function App() {
 
       const data = await res.json();
       
-      if (!isDelayEnabled) setVisualizerState(5); 
+      if (!isDelayEnabled) {
+        setVisualizerState(3);
+        setTimeout(() => setVisualizerState(4), 600);
+        setTimeout(() => setVisualizerState(5), 1200);
+      }
 
       if (res.ok) {
         await fetchUsers();
       } else {
         alert('Transfer Failed: ' + data.error);
         setVisualizerState(0);
+        setTransferTarget(null);
       }
     } catch (err) {
       alert('Error connecting to server');
       setVisualizerState(0);
+      setTransferTarget(null);
     }
     
     setTimeout(() => {
       setVisualizerState(0);
+      setTransferTarget(null);
     }, 4000);
   };
 
   return (
-    <div className="min-h-screen bg-black text-white flex items-center justify-center p-8 font-sans">
+    <div className="dark min-h-screen bg-black text-white flex items-center justify-center p-8 font-sans">
       <div className="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 gap-8">
         
         {/* Left Column */}
@@ -107,6 +117,8 @@ function App() {
         <div className="h-full">
           <Visualizer 
             step={visualizerState} 
+            senderName={activeUser?.username || 'Sender'}
+            receiverName={transferTarget?.username || 'Receiver'}
             isDelayEnabled={isDelayEnabled}
             setIsDelayEnabled={setIsDelayEnabled}
           />

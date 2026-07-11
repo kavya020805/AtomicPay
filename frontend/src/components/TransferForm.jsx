@@ -25,21 +25,21 @@ export default function TransferForm({ users, onTransfer, isProcessing }) {
         <form onSubmit={handleSubmit} className="space-y-6">
           
           <div className="space-y-2">
-            <Label htmlFor="recipient">Recipient</Label>
+            <Label htmlFor="recipient" className="text-white">Recipient</Label>
             <Select onValueChange={setReceiverId} value={receiverId} required>
-              <SelectTrigger id="recipient" className="w-full bg-black border-neutral-800">
+              <SelectTrigger id="recipient" className="w-full bg-black border-neutral-800 text-white">
                 <SelectValue placeholder="Select user..." />
               </SelectTrigger>
               <SelectContent className="bg-neutral-950 border-neutral-800 text-white">
                 {users.map(u => (
-                  <SelectItem key={u.id} value={u.id.toString()}>{u.username}</SelectItem>
+                  <SelectItem key={u.id} value={u.id.toString()} className="text-white focus:bg-neutral-800 focus:text-white cursor-pointer">{u.username}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="amount">Amount (USD)</Label>
+            <Label htmlFor="amount" className="text-white">Amount (USD)</Label>
             <Input 
               id="amount"
               type="number" 
@@ -48,7 +48,7 @@ export default function TransferForm({ users, onTransfer, isProcessing }) {
               placeholder="500" 
               value={amount} 
               onChange={(e) => setAmount(e.target.value)}
-              className="bg-black border-neutral-800"
+              className="bg-black border-neutral-800 text-white"
               required
             />
           </div>
