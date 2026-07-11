@@ -71,6 +71,12 @@ app.post('/api/transfer', async (req, res) => {
     await client.query('SELECT * FROM users WHERE id = $1 FOR UPDATE', [firstId]);
     await client.query('SELECT * FROM users WHERE id = $1 FOR UPDATE', [secondId]);
 
+    // Simulate Network Delay (for the Frontend Visualizer to show off the lock)
+    if (req.query.delay === 'true') {
+      console.log('Simulating 3 second transaction delay...');
+      await new Promise(resolve => setTimeout(resolve, 3000));
+    }
+
     // Check sender's balance
     const senderRes = await client.query('SELECT balance_in_cents FROM users WHERE id = $1', [senderId]);
     if (senderRes.rows.length === 0) {
