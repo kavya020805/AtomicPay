@@ -6,7 +6,7 @@ import Visualizer from './components/Visualizer';
 function App() {
   const [users, setUsers] = useState([]);
   const [activeUser, setActiveUser] = useState(null);
-  const [visualizerState, setVisualizerState] = useState(0); // 0-5 steps
+  const [visualizerState, setVisualizerState] = useState(0); 
   const [isDelayEnabled, setIsDelayEnabled] = useState(false);
 
   const fetchUsers = async () => {
@@ -29,9 +29,8 @@ function App() {
   }, []);
 
   const handleTransfer = async (receiverId, amount) => {
-    setVisualizerState(1); // Acquiring Lock...
+    setVisualizerState(1); 
     
-    // If delay is enabled, we animate the frontend states manually to match the backend delay
     if (isDelayEnabled) {
         setTimeout(() => setVisualizerState(2), 800);
         setTimeout(() => setVisualizerState(3), 1600);
@@ -48,13 +47,13 @@ function App() {
         body: JSON.stringify({
           senderId: activeUser.id,
           receiverId: parseInt(receiverId),
-          amount: parseInt(amount) * 100 // Convert to cents
+          amount: parseInt(amount) * 100 
         })
       });
 
       const data = await res.json();
       
-      if (!isDelayEnabled) setVisualizerState(5); // Instant finish
+      if (!isDelayEnabled) setVisualizerState(5); 
 
       if (res.ok) {
         await fetchUsers();
@@ -67,49 +66,51 @@ function App() {
       setVisualizerState(0);
     }
     
-    // Reset visualizer
     setTimeout(() => {
       setVisualizerState(0);
     }, 4000);
   };
 
   return (
-    <div className="app-container">
-      <div className="left-column">
-        <h1>AtomicPay ⚛️</h1>
+    <div className="min-h-screen bg-black text-white flex items-center justify-center p-8 font-sans">
+      <div className="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 gap-8">
         
-        <div className="glass-panel" style={{marginBottom: '2rem'}}>
-          <label>View As User:</label>
-          <select 
-            className="user-selector"
-            value={activeUser?.id || ''} 
-            onChange={(e) => setActiveUser(users.find(u => u.id === parseInt(e.target.value)))}
-          >
-            {users.map(u => (
-              <option key={u.id} value={u.id}>{u.username}</option>
-            ))}
-          </select>
-        </div>
+        {/* Left Column */}
+        <div className="space-y-6">
+          <h1 className="text-4xl font-extrabold tracking-tight">AtomicPay</h1>
+          
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-neutral-400">View As User</label>
+            <select 
+              className="w-full bg-neutral-900 border border-neutral-800 text-white rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-neutral-700"
+              value={activeUser?.id || ''} 
+              onChange={(e) => setActiveUser(users.find(u => u.id === parseInt(e.target.value)))}
+            >
+              {users.map(u => (
+                <option key={u.id} value={u.id}>{u.username}</option>
+              ))}
+            </select>
+          </div>
 
-        {activeUser && (
-          <Dashboard user={activeUser} />
-        )}
+          {activeUser && (
+            <Dashboard user={activeUser} />
+          )}
 
-        <div className="glass-panel" style={{marginTop: '2rem'}}>
           <TransferForm 
             users={users.filter(u => u.id !== activeUser?.id)} 
             onTransfer={handleTransfer}
             isProcessing={visualizerState > 0 && visualizerState < 5}
           />
         </div>
-      </div>
 
-      <div className="right-column">
-        <Visualizer 
-          step={visualizerState} 
-          isDelayEnabled={isDelayEnabled}
-          setIsDelayEnabled={setIsDelayEnabled}
-        />
+        {/* Right Column */}
+        <div className="h-full">
+          <Visualizer 
+            step={visualizerState} 
+            isDelayEnabled={isDelayEnabled}
+            setIsDelayEnabled={setIsDelayEnabled}
+          />
+        </div>
       </div>
     </div>
   );

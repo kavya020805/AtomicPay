@@ -1,4 +1,9 @@
 import { useState } from 'react';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function TransferForm({ users, onTransfer, isProcessing }) {
   const [receiverId, setReceiverId] = useState('');
@@ -12,39 +17,48 @@ export default function TransferForm({ users, onTransfer, isProcessing }) {
   };
 
   return (
-    <form onSubmit={handleSubmit}>
-      <h3>Send Money</h3>
-      
-      <div style={{marginTop: '1rem'}}>
-        <label>Recipient:</label>
-        <select 
-          value={receiverId} 
-          onChange={(e) => setReceiverId(e.target.value)}
-          required
-        >
-          <option value="" disabled>Select User...</option>
-          {users.map(u => (
-            <option key={u.id} value={u.id}>{u.username}</option>
-          ))}
-        </select>
-      </div>
+    <Card className="bg-neutral-950 border-neutral-800">
+      <CardHeader>
+        <CardTitle className="text-xl">Send Money</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          
+          <div className="space-y-2">
+            <Label htmlFor="recipient">Recipient</Label>
+            <Select onValueChange={setReceiverId} value={receiverId} required>
+              <SelectTrigger id="recipient" className="w-full bg-black border-neutral-800">
+                <SelectValue placeholder="Select user..." />
+              </SelectTrigger>
+              <SelectContent className="bg-neutral-950 border-neutral-800 text-white">
+                {users.map(u => (
+                  <SelectItem key={u.id} value={u.id.toString()}>{u.username}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-      <div style={{marginTop: '1rem'}}>
-        <label>Amount (USD):</label>
-        <input 
-          type="number" 
-          min="1" 
-          step="1"
-          placeholder="500" 
-          value={amount} 
-          onChange={(e) => setAmount(e.target.value)}
-          required
-        />
-      </div>
+          <div className="space-y-2">
+            <Label htmlFor="amount">Amount (USD)</Label>
+            <Input 
+              id="amount"
+              type="number" 
+              min="1" 
+              step="1"
+              placeholder="500" 
+              value={amount} 
+              onChange={(e) => setAmount(e.target.value)}
+              className="bg-black border-neutral-800"
+              required
+            />
+          </div>
 
-      <button type="submit" disabled={isProcessing}>
-        {isProcessing ? 'Processing Transaction...' : 'Confirm Transfer'}
-      </button>
-    </form>
+          <Button type="submit" disabled={isProcessing} className="w-full bg-white text-black hover:bg-neutral-200">
+            {isProcessing ? 'Processing Transaction...' : 'Confirm Transfer'}
+          </Button>
+
+        </form>
+      </CardContent>
+    </Card>
   );
 }
