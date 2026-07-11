@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import Dashboard from './components/Dashboard';
 import TransferForm from './components/TransferForm';
 import Visualizer from './components/Visualizer';
+import TransactionHistory from './components/TransactionHistory';
 
 function App() {
   const [users, setUsers] = useState([]);
@@ -163,7 +164,7 @@ function App() {
           </div>
 
           {activeUser && (
-            <Dashboard user={activeUser} refreshTrigger={refreshTrigger} />
+            <Dashboard user={activeUser} />
           )}
 
           <TransferForm 
@@ -171,6 +172,10 @@ function App() {
             onTransfer={handleTransfer}
             isProcessing={visualizerState > 0 && visualizerState < 5}
           />
+
+          {activeUser && (
+            <TransactionHistory user={activeUser} refreshTrigger={refreshTrigger} />
+          )}
         </div>
 
         {/* Right Column */}
