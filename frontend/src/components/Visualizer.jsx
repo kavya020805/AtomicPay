@@ -72,7 +72,9 @@ export default function Visualizer({
   };
 
   return (
-    <div className="h-full bg-black border border-neutral-800 rounded-lg flex flex-col overflow-hidden">
+    <div className="h-full bg-black/40 backdrop-blur-2xl border border-neutral-800/80 rounded-2xl flex flex-col overflow-hidden shadow-2xl relative">
+      {/* Subtle top gradient glow */}
+      <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-emerald-500/20 to-transparent" />
 
       {/* ── Header ── */}
       <div className="px-5 pt-5 pb-3">
@@ -86,7 +88,7 @@ export default function Visualizer({
 
           {/* ━━━ SENDER NODE ━━━ */}
           <div
-            className={`w-full flex items-center gap-3 p-3 rounded-lg border transition-all duration-500 ${ringColor[senderState]} ${step >= 1 ? 'bg-neutral-950' : 'bg-black'}`}
+            className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all duration-700 ${ringColor[senderState]} ${step >= 1 ? 'bg-neutral-900/40 backdrop-blur-md shadow-lg shadow-white/5' : 'bg-black/50'}`}
             style={glowStyle[senderState]}
           >
             <div className={`w-10 h-10 rounded-full border-2 flex items-center justify-center font-bold text-sm shrink-0 transition-colors duration-500 ${ringColor[senderState]} ${textColor[senderState]}`}>
@@ -125,37 +127,31 @@ export default function Visualizer({
                 stroke={step >= 1 ? '#525252' : '#262626'}
                 strokeWidth="2"
                 strokeDasharray="4 4"
-                style={step >= 1 ? { animation: 'dash-flow 0.6s linear infinite' } : {}}
+                style={step >= 1 ? { animation: 'dash-flow 1.2s linear infinite' } : {}}
               />
             </svg>
-            {/* Traveling packet */}
+            {/* Traveling packet streak */}
             {step === 1 && (
               <div
-                className="absolute left-1/2 -translate-x-1/2"
+                className="absolute left-1/2 -translate-x-1/2 z-10"
                 style={{
-                  width: 8, height: 8, borderRadius: '50%', background: 'white',
-                  boxShadow: '0 0 10px 3px rgba(255,255,255,0.5)',
+                  width: 3, height: 28, borderRadius: '4px',
+                  background: 'linear-gradient(to bottom, transparent, #10b981, #fff)',
+                  boxShadow: '0 4px 12px rgba(16, 185, 129, 0.6)',
                   top: 0,
-                  animation: 'packet-glow-pulse 0.5s ease-in-out infinite, packetDown1 0.6s ease-in-out forwards',
+                  animation: 'streak-down 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards',
                 }}
               />
-            )}
-            {step >= 1 && (
-              <style>{`
-                @keyframes packetDown1 {
-                  0%   { top: -4px; opacity: 0; }
-                  15%  { opacity: 1; }
-                  85%  { opacity: 1; }
-                  100% { top: 52px; opacity: 0; }
-                }
-              `}</style>
             )}
           </div>
 
           {/* ━━━ DATABASE NODE ━━━ */}
           <div
-            className={`w-full rounded-lg border transition-all duration-500 ${ringColor[dbState]} ${step >= 2 ? 'bg-neutral-950' : 'bg-black'}`}
-            style={glowStyle[dbState]}
+            className={`w-full relative rounded-xl border transition-all duration-700 ${ringColor[dbState]} ${step >= 2 ? 'bg-neutral-900/40 backdrop-blur-md shadow-xl ' + (step === 6 ? 'shadow-blue-900/10' : 'shadow-emerald-900/10') : 'bg-black/50'}`}
+            style={{
+              ...glowStyle[dbState],
+              animation: step >= 5 && step !== 6 ? 'pulse-ring-emerald 2s cubic-bezier(0.4, 0, 0.6, 1) forwards' : (step === 6 ? 'pulse-ring-blue 2s cubic-bezier(0.4, 0, 0.6, 1) forwards' : glowStyle[dbState]?.animation)
+            }}
           >
             {/* DB Header */}
             <div className="flex items-center gap-3 p-3 border-b border-neutral-800/60">
@@ -199,8 +195,16 @@ export default function Visualizer({
             </div>
 
             {/* SQL Terminal */}
-            <div className="p-3">
-              <div className="bg-black rounded-md border border-neutral-800/60 p-3 font-mono text-[11px] leading-relaxed min-h-[120px] overflow-hidden">
+            <div className="p-3 relative overflow-hidden">
+              {/* Scanning Laser Effect during active processing */}
+              {step >= 2 && step < 5 && (
+                <div 
+                  className="absolute left-0 right-0 h-[2px] bg-emerald-500/50 blur-[1px] pointer-events-none z-10" 
+                  style={{ animation: 'scan-line 2s linear infinite', boxShadow: '0 0 8px 2px rgba(16, 185, 129, 0.3)' }}
+                />
+              )}
+              
+              <div className="bg-black/80 rounded-lg border border-neutral-800/80 p-3 font-mono text-[11px] leading-relaxed min-h-[120px] relative">
                 {step === 6 ? (
                   <div className="space-y-2">
                     <div className="text-blue-400">{'>'} Idempotency-Key matched existing record.</div>
@@ -252,36 +256,30 @@ export default function Visualizer({
                 stroke={step >= 4 ? '#525252' : '#262626'}
                 strokeWidth="2"
                 strokeDasharray="4 4"
-                style={step >= 4 ? { animation: 'dash-flow 0.6s linear infinite' } : {}}
+                style={step >= 4 ? { animation: 'dash-flow 1.2s linear infinite' } : {}}
               />
             </svg>
             {step === 4 && (
               <div
-                className="absolute left-1/2 -translate-x-1/2"
+                className="absolute left-1/2 -translate-x-1/2 z-10"
                 style={{
-                  width: 8, height: 8, borderRadius: '50%', background: 'white',
-                  boxShadow: '0 0 10px 3px rgba(255,255,255,0.5)',
+                  width: 3, height: 28, borderRadius: '4px',
+                  background: 'linear-gradient(to bottom, transparent, #10b981, #fff)',
+                  boxShadow: '0 4px 12px rgba(16, 185, 129, 0.6)',
                   top: 0,
-                  animation: 'packet-glow-pulse 0.5s ease-in-out infinite, packetDown2 0.6s ease-in-out forwards',
+                  animation: 'streak-down 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards',
                 }}
               />
-            )}
-            {step >= 4 && (
-              <style>{`
-                @keyframes packetDown2 {
-                  0%   { top: -4px; opacity: 0; }
-                  15%  { opacity: 1; }
-                  85%  { opacity: 1; }
-                  100% { top: 52px; opacity: 0; }
-                }
-              `}</style>
             )}
           </div>
 
           {/* ━━━ RECEIVER NODE ━━━ */}
           <div
-            className={`w-full flex items-center gap-3 p-3 rounded-lg border transition-all duration-500 ${ringColor[receiverState]} ${textColor[receiverState]} ${step >= 4 ? 'bg-neutral-950' : 'bg-black'}`}
-            style={glowStyle[receiverState]}
+            className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all duration-700 ${ringColor[receiverState]} ${textColor[receiverState]} ${step >= 4 ? 'bg-neutral-900/40 backdrop-blur-md shadow-lg shadow-emerald-900/10' : 'bg-black/50'}`}
+            style={{
+              ...glowStyle[receiverState],
+              animation: step >= 5 && step !== 6 ? 'pulse-ring-emerald 2s cubic-bezier(0.4, 0, 0.6, 1) forwards' : glowStyle[receiverState]?.animation
+            }}
           >
             <div className={`w-10 h-10 rounded-full border-2 flex items-center justify-center font-bold text-sm shrink-0 transition-colors duration-500 ${ringColor[receiverState]} ${textColor[receiverState]}`}>
               B

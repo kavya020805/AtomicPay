@@ -3,6 +3,7 @@ import Dashboard from './components/Dashboard';
 import TransferForm from './components/TransferForm';
 import Visualizer from './components/Visualizer';
 import TransactionHistory from './components/TransactionHistory';
+import Aurora from './components/react-bits/Aurora';
 
 function App() {
   const [users, setUsers] = useState([]);
@@ -105,13 +106,9 @@ function App() {
     setIsPaused(false);
     setVisualizerState(1); 
     
-    // Schedule the animation steps
+    // Schedule only the initial travel to the Database (doubled duration)
     scheduleSteps([
-      { step: 2, delayMs: 600 },
-      { step: 3, delayMs: 1400 },
-      { step: 4, delayMs: 2200 },
-      { step: 5, delayMs: 3000 },
-      { step: 0, delayMs: 6000 },
+      { step: 2, delayMs: 1200 }
     ]);
 
     try {
@@ -131,10 +128,15 @@ function App() {
       const data = await res.json();
 
       if (res.ok) {
-        if (data.isIdempotent) {
-          setVisualizerState(6);
-          scheduleSteps([{ step: 0, delayMs: 6000 }]);
-        }
+        // Both normal and retry will play the exact same visual sequence (steps 3 & 4)
+        // But the final state (5 vs 6) will differ based on idempotency
+        setVisualizerState(3);
+        scheduleSteps([
+          { step: 4, delayMs: 1200 },
+          { step: data.isIdempotent ? 6 : 5, delayMs: 2400 },
+          { step: 0, delayMs: 7000 },
+        ]);
+        
         await fetchUsers();
       } else {
         alert('Transfer Failed: ' + data.error);
@@ -156,8 +158,18 @@ function App() {
   };
 
   return (
-    <div className="dark min-h-screen bg-black text-white p-8 font-sans flex flex-col items-center pt-12">
-      <div className="w-full max-w-5xl space-y-8">
+    <div className="min-h-screen bg-black text-white p-8 font-sans selection:bg-emerald-500/30 relative">
+      {/* ── Aurora Background (React Bits) ── */}
+      <div className="fixed inset-0 z-0 pointer-events-none opacity-20">
+        <Aurora 
+          colorStops={["#000000", "#10b981", "#022c22"]} 
+          amplitude={1.2} 
+          blend={0.5} 
+          speed={0.5} 
+        />
+      </div>
+
+      <div className="max-w-6xl mx-auto relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           
           {/* Left Column */}
