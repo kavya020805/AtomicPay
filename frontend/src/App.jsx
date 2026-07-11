@@ -9,6 +9,7 @@ function App() {
   const [visualizerState, setVisualizerState] = useState(0); 
   const [transferTarget, setTransferTarget] = useState(null);
   const [isPaused, setIsPaused] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Store timeout IDs so we can cancel them on pause
   const timersRef = useRef([]);
@@ -76,6 +77,7 @@ function App() {
       } else if (activeUser) {
         setActiveUser(data.find(u => u.id === activeUser.id));
       }
+      setRefreshTrigger(prev => prev + 1);
     } catch (err) {
       console.error(err);
     }
@@ -161,7 +163,7 @@ function App() {
           </div>
 
           {activeUser && (
-            <Dashboard user={activeUser} />
+            <Dashboard user={activeUser} refreshTrigger={refreshTrigger} />
           )}
 
           <TransferForm 
