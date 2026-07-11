@@ -41,6 +41,72 @@ app.get('/api/transactions/:userId', async (req, res) => {
   }
 });
 
+// POST transfer money with ACID Transactions and Row-Level Locking
+app.post('/api/transfer', async (req, res) => {
+  const { senderId, receiverId, amount } = req.body;
+
+  if (!senderId || !receiverId || !amount) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  if (senderId === receiverId) {
+    return res.status(400).json({ error: 'Sender and receiver must be different' });
+  }
+
+  if (amount <= 0) {
+    return res.status(400).json({ error: 'Amount must be greater than zero' });
+  }
+
+  // Get a dedicated client from the pool for our transaction
+  const client = await db.pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    // To prevent deadlocks, always lock the row with the lower ID first
+    const firstId = Math.min(senderId, receiverId);
+    const secondId = Math.max(senderId, receiverId);
+
+    // Lock the rows for update. Concurrent requests trying to lock these rows will block here.
+    await client.query('SELECT * FROM users WHERE id = $1 FOR UPDATE', [firstId]);
+    await client.query('SELECT * FROM users WHERE id = $1 FOR UPDATE', [secondId]);
+
+    // Check sender's balance
+    const senderRes = await client.query('SELECT balance_in_cents FROM users WHERE id = $1', [senderId]);
+    if (senderRes.rows.length === 0) {
+      throw new Error('Sender not found');
+    }
+
+    const senderBalance = senderRes.rows[0].balance_in_cents;
+    if (senderBalance < amount) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Insufficient funds' });
+    }
+
+    // Deduct from sender
+    await client.query('UPDATE users SET balance_in_cents = balance_in_cents - $1 WHERE id = $2', [amount, senderId]);
+
+    // Add to receiver
+    await client.query('UPDATE users SET balance_in_cents = balance_in_cents + $1 WHERE id = $2', [amount, receiverId]);
+
+    // Record the transaction
+    await client.query(
+      'INSERT INTO transactions (sender_id, receiver_id, amount_in_cents, status) VALUES ($1, $2, $3, $4)',
+      [senderId, receiverId, amount, 'completed']
+    );
+
+    await client.query('COMMIT');
+    res.json({ message: 'Transfer successful', amount });
+
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Transaction failed, rolled back:', err);
+    res.status(500).json({ error: 'Transaction failed' });
+  } finally {
+    client.release();
+  }
+});
+
 // Basic health check route
 app.get('/', (req, res) => {
   res.send('AtomicPay API is running!');
