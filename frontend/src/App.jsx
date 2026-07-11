@@ -7,7 +7,6 @@ function App() {
   const [users, setUsers] = useState([]);
   const [activeUser, setActiveUser] = useState(null);
   const [visualizerState, setVisualizerState] = useState(0); 
-  const [isDelayEnabled, setIsDelayEnabled] = useState(false);
   const [transferTarget, setTransferTarget] = useState(null);
 
   const fetchUsers = async () => {
@@ -34,17 +33,14 @@ function App() {
     setTransferTarget(receiver);
     setVisualizerState(1); 
     
-    if (isDelayEnabled) {
-        setTimeout(() => setVisualizerState(2), 600);
-        setTimeout(() => setVisualizerState(3), 1400);
-        setTimeout(() => setVisualizerState(4), 2200);
-        setTimeout(() => setVisualizerState(5), 3000);
-    } else {
-        setTimeout(() => setVisualizerState(2), 500);
-    }
+    // Always show the full animation with delay
+    setTimeout(() => setVisualizerState(2), 600);
+    setTimeout(() => setVisualizerState(3), 1400);
+    setTimeout(() => setVisualizerState(4), 2200);
+    setTimeout(() => setVisualizerState(5), 3000);
 
     try {
-      const res = await fetch(`http://localhost:3000/api/transfer?delay=${isDelayEnabled}`, {
+      const res = await fetch('http://localhost:3000/api/transfer?delay=true', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -55,12 +51,6 @@ function App() {
       });
 
       const data = await res.json();
-      
-      if (!isDelayEnabled) {
-        setVisualizerState(3);
-        setTimeout(() => setVisualizerState(4), 600);
-        setTimeout(() => setVisualizerState(5), 1200);
-      }
 
       if (res.ok) {
         await fetchUsers();
@@ -119,8 +109,6 @@ function App() {
             step={visualizerState} 
             senderName={activeUser?.username || 'Sender'}
             receiverName={transferTarget?.username || 'Receiver'}
-            isDelayEnabled={isDelayEnabled}
-            setIsDelayEnabled={setIsDelayEnabled}
           />
         </div>
       </div>

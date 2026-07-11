@@ -10,10 +10,8 @@ import React, { useMemo } from 'react';
  *   step            0 = idle, 1 = initiated, 2 = lock acquired, 3 = debit, 4 = credit, 5 = committed
  *   senderName      display name of the sender   (falls back to "Sender")
  *   receiverName    display name of the receiver  (falls back to "Receiver")
- *   isDelayEnabled  boolean – show delay toggle as checked
- *   setIsDelayEnabled  setter
  */
-export default function Visualizer({ step, senderName = 'Sender', receiverName = 'Receiver', isDelayEnabled, setIsDelayEnabled }) {
+export default function Visualizer({ step, senderName = 'Sender', receiverName = 'Receiver' }) {
 
   // ── SQL lines that appear progressively ──
   const sqlLines = useMemo(() => [
@@ -298,27 +296,6 @@ export default function Visualizer({ step, senderName = 'Sender', receiverName =
           {step === 3 && '💸 Debiting sender balance...'}
           {step === 4 && '💰 Crediting receiver balance...'}
           {step === 5 && '✓  Transaction committed successfully'}
-        </div>
-      </div>
-
-      {/* ── Delay Toggle ── */}
-      <div className="px-5 pb-4 pt-1">
-        <div className="p-3 rounded-lg bg-neutral-950 border border-neutral-800 flex items-start gap-3">
-          <input
-            type="checkbox"
-            id="delayToggle"
-            className="mt-0.5 w-4 h-4 accent-white bg-neutral-900 border-neutral-700 rounded cursor-pointer"
-            checked={isDelayEnabled}
-            onChange={(e) => setIsDelayEnabled(e.target.checked)}
-          />
-          <div>
-            <label htmlFor="delayToggle" className="font-medium text-xs cursor-pointer text-neutral-200">
-              Simulate Network Delay (3s)
-            </label>
-            <p className="text-[10px] text-neutral-500 mt-0.5 leading-relaxed">
-              Artificially pauses the transaction midway, proving row-level locks prevent concurrent race conditions.
-            </p>
-          </div>
         </div>
       </div>
     </div>
