@@ -31,7 +31,7 @@ export default function TransferForm({ users, onTransfer, isProcessing }) {
   return (
     <Card className="bg-neutral-950 border-neutral-800">
       <CardHeader>
-        <CardTitle className="text-xl">Send Money</CardTitle>
+        <CardTitle className="text-xl text-white">Send Money</CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">

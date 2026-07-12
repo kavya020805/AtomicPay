@@ -13,6 +13,13 @@ function App() {
   const [transferAmount, setTransferAmount] = useState(null);
   const [isPaused, setIsPaused] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [showBanner, setShowBanner] = useState(true);
+
+  // Auto-dismiss the cold-start banner after 10 seconds
+  useEffect(() => {
+    const timer = setTimeout(() => setShowBanner(false), 10000);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Store timeout IDs so we can cancel them on pause
   const timersRef = useRef([]);
@@ -172,6 +179,27 @@ function App() {
       </div>
 
       <div className="max-w-6xl mx-auto relative z-10">
+        {/* Cold-start banner */}
+        {showBanner && (
+          <div 
+            className="mb-6 flex items-start gap-3 rounded-xl border border-amber-800/40 bg-amber-950/40 backdrop-blur-md px-4 py-3 text-sm text-amber-200 shadow-lg transition-all duration-500"
+            style={{ animation: 'fade-in-up 0.4s ease-out' }}
+          >
+            <span className="text-lg mt-0.5">⚡</span>
+            <div className="flex-1">
+              <p className="font-semibold text-amber-100">Cold Start Notice</p>
+              <p className="text-amber-300/80 text-xs mt-0.5">
+                The database is hosted on Render's free tier and may take up to 60 seconds to wake up on first load. Please be patient!
+              </p>
+            </div>
+            <button 
+              onClick={() => setShowBanner(false)} 
+              className="text-amber-500 hover:text-amber-300 transition-colors text-lg leading-none px-1"
+            >
+              ×
+            </button>
+          </div>
+        )}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           
           {/* Left Column */}
@@ -220,7 +248,9 @@ function App() {
 
         {/* Bottom Full-Width Row */}
         {activeUser && (
-          <TransactionHistory user={activeUser} refreshTrigger={refreshTrigger} />
+          <div className="mt-8">
+            <TransactionHistory user={activeUser} refreshTrigger={refreshTrigger} />
+          </div>
         )}
       </div>
     </div>
