@@ -1,54 +1,149 @@
-# 🚀 AtomicPay
+# 🚀 AtomicPay v2.0
 
-AtomicPay is a peer-to-peer (P2P) money transfer application designed to demonstrate robust backend engineering, specifically focusing on data integrity, **ACID database transactions**, and **race-condition prevention**.
+AtomicPay is a **production-grade peer-to-peer (P2P) payment system** demonstrating robust backend engineering with **ACID transactions**, **event-driven architecture**, and **real-time caching**.
 
-> Built as a demonstration of complex state management and database consistency for Software Development Engineer (SDE) roles.
+> Built to demonstrate complex distributed systems design for Software Development Engineer (SDE) roles.
 
-## 💡 The Core Problem Solved
-In distributed systems, moving money safely is difficult. If User A sends $50 to User B, we cannot simply deduct $50 from A and add $50 to B in two separate database calls. If the server crashes in between, the money is lost. Furthermore, if User A rapid-fires the "Send" button, a race condition might allow them to overdraw their account. 
+## 🏗️ Architecture
 
-AtomicPay solves this by utilizing **PostgreSQL ACID Transactions** and **Row-Level Locking** to guarantee that money transfers are atomic (all-or-nothing) and immune to concurrency bugs.
+```
+┌─────────────┐     ┌──────────────────────────────────────────┐
+│   React     │────▶│  Express API (JWT Auth + Rate Limiting)  │
+│   Frontend  │◀────│                                          │
+└─────────────┘     └──────┬──────────┬───────────┬────────────┘
+                           │          │           │
+                    ┌──────▼──┐  ┌────▼────┐  ┌───▼──────────┐
+                    │ Postgres│  │  Redis  │  │    Kafka      │
+                    │  (ACID) │  │ (Cache) │  │  (Events)     │
+                    └─────────┘  └─────────┘  └───┬──────────┘
+                                                  │
+                                    ┌─────────────┼─────────────┐
+                                    │             │             │
+                              ┌─────▼───┐  ┌─────▼───┐  ┌─────▼─────┐
+                              │  Email  │  │ Ledger  │  │  Fraud    │
+                              │Consumer │  │Consumer │  │ Consumer  │
+                              └─────────┘  └─────────┘  └───────────┘
+```
 
-## ✨ Features
-- **Secure P2P Transfers**: Send money between users safely via a robust Express.js backend.
-- **Transaction History**: View a ledger of all incoming and outgoing funds.
-- **Race Condition Prevention**: Prevents double-spending attacks under heavy load using `SELECT ... FOR UPDATE` locks.
-- **Transaction Visualizer Engine**: A unique frontend dashboard that visually explains how the database lock and atomic transfer work under the hood in real-time. Features a live SQL terminal and animated packet transfers.
-- **Professional Dashboard**: Built with an immersive all-black theme, Shadcn/UI components, and smooth CSS animations.
+## 💡 Key Engineering Problems Solved
+
+### 1. Atomicity & Race Conditions (v1.0 → v2.0)
+PostgreSQL ACID transactions with `SELECT ... FOR UPDATE` row-level locking prevent double-spending under concurrent load.
+
+### 2. Redis Caching & Rate Limiting (v2.0)
+- **Session caching** — JWT sessions cached in Redis for fast auth verification
+- **Rate limiting** — Sliding window rate limiter (10 transfers/min, 5 logins/min)
+- **Payment status cache** — Fast polling without hitting the database
+- **Distributed locks** — Redis-based locks with Lua scripts for safe release
+- **OTP storage** — Time-limited one-time passwords for high-security operations
+
+### 3. Kafka Event-Driven Pipeline (v2.0)
+Every completed payment publishes a `payment.completed` event to Kafka, consumed by:
+- **Notification Consumer** — Sends email & push notifications (simulated)
+- **Ledger Consumer** — Records double-entry debit/credit audit trail
+- **Fraud Consumer** — Heuristic rules (high-value, rapid transfers, circular patterns)
+- **Analytics Consumer** — Aggregates daily volume, per-user metrics
 
 ## 🛠️ Tech Stack
-- **Database**: PostgreSQL (Docker containerized on port 5433)
-- **Backend**: Node.js & Express.js (REST API, `pg` driver)
-- **Frontend**: React (Vite) + Tailwind CSS + Shadcn/UI
-- **Styling**: Vanilla CSS Keyframes for complex transaction flow animations
 
-## 🏃‍♂️ How to Run Locally
+| Layer | Technology |
+|-------|-----------|
+| **Database** | PostgreSQL 15 (Docker, UUID PKs, ACID) |
+| **Backend** | Node.js, Express.js 5 |
+| **Auth** | JWT (jsonwebtoken) + bcryptjs |
+| **Cache** | Redis 7 (ioredis) |
+| **Message Queue** | Apache Kafka (KafkaJS, Confluent images) |
+| **Frontend** | React 18 (Vite) + Tailwind CSS + Shadcn/UI |
+| **Infrastructure** | Docker Compose (5 services) |
 
-### 1. Database Setup (Docker)
-Ensure you have Docker installed, then run:
+## 🏃‍♂️ How to Run
+
+### Prerequisites
+- Docker & Docker Compose
+- Node.js 18+
+
+### Option 1: Docker Compose (Full Stack)
 ```bash
-docker run --name atomicpay-db -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=atomicpay -p 5433:5432 -d postgres
+docker-compose up -d
 ```
-*(Note: We map to port 5433 to avoid conflicts if you already have Postgres running).*
+Services:
+- Frontend: http://localhost:5173
+- Backend API: http://localhost:3000
+- PostgreSQL: localhost:5433
+- Redis: localhost:6379
+- Kafka: localhost:9092
 
-### 2. Backend API
+### Option 2: Local Development
 ```bash
+# 1. Start infrastructure services
+docker-compose up -d postgres redis zookeeper kafka
+
+# 2. Backend
 cd backend
 npm install
-npm run seed  # Run this once to populate dummy users
-npm start
-```
-*The backend runs on `http://localhost:3000`.*
+npm run seed    # Create tables + demo users
+npm start       # Start API + Kafka consumers
 
-### 3. Frontend Dashboard
-```bash
+# 3. Frontend (new terminal)
 cd frontend
 npm install
 npm run dev
 ```
-*The frontend runs on `http://localhost:5173`.*
+
+### Demo Credentials
+| User | Email | Password |
+|------|-------|----------|
+| Alice | alice@atomicpay.com | password123 |
+| Bob | bob@atomicpay.com | password123 |
+| Charlie | charlie@atomicpay.com | password123 |
+
+## 📡 API Endpoints
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/api/auth/register` | ❌ | Create account |
+| POST | `/api/auth/login` | ❌ | Login (returns JWT) |
+| POST | `/api/auth/logout` | ✅ | Invalidate session |
+| GET | `/api/auth/me` | ✅ | Get current user + wallet |
+| GET | `/api/users` | ✅ | List all users |
+| GET | `/api/users/search?q=` | ✅ | Search users by name |
+| POST | `/api/transfer` | ✅ | Execute P2P transfer |
+| GET | `/api/transfer/:id/status` | ✅ | Check transfer status |
+| GET | `/api/transactions` | ✅ | Paginated history |
+| GET | `/api/transactions/:id/events` | ✅ | Kafka event trail |
+| GET | `/health` | ❌ | System health check |
 
 ## 📂 Project Structure
-- `docs/` - Contains Sprint documentation and project planning.
-- `backend/` - Node.js API server (handles lock mechanisms).
-- `frontend/` - React frontend application (handles the visualizer and dashboard).
+
+```
+AtomicPay/
+├── docker-compose.yml          # 5-service infrastructure
+├── backend/
+│   ├── src/
+│   │   ├── server.js           # Express bootstrap
+│   │   ├── config/             # DB, Redis, Kafka clients
+│   │   ├── middleware/         # Auth, rate limiting, validation
+│   │   ├── routes/             # API route definitions
+│   │   ├── controllers/        # Request handlers
+│   │   ├── services/           # Business logic
+│   │   ├── consumers/          # Kafka event consumers
+│   │   ├── schema.sql          # PostgreSQL schema
+│   │   └── seed.js             # Demo data seeder
+│   └── Dockerfile
+├── frontend/
+│   ├── src/
+│   │   ├── App.jsx             # Router root
+│   │   ├── context/            # Auth context
+│   │   ├── pages/              # Login, Register, Dashboard
+│   │   ├── components/         # UI components
+│   │   └── ...
+│   └── Dockerfile
+└── docs/                       # Sprint documentation
+```
+
+## 📝 Resume Bullets
+
+- **Leveraged Redis** for rate limiting (sliding window), session caching, and temporary payment state management to improve throughput and reduce database load.
+- **Implemented Kafka-based** asynchronous payment event processing pipeline with notification, ledger, fraud detection, and analytics consumers for real-time payment processing.
+- **Designed and built** a production-grade P2P payment system with JWT authentication, bcrypt password hashing, ACID transactions with row-level locking, and idempotent transfer APIs.
+- **Architected** a modular Express.js backend with layered separation of concerns (routes → controllers → services) supporting graceful shutdown and comprehensive health monitoring.

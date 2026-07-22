@@ -16,13 +16,13 @@ const pool = new Pool(
       }
 );
 
-// Test the connection
-pool.connect((err, client, release) => {
-  if (err) {
-    return console.error('Error acquiring client', err.stack);
-  }
-  console.log('Connected to PostgreSQL successfully!');
-  release();
+// Test connection on startup
+pool.on('connect', () => {
+  console.log('✅ PostgreSQL connected');
+});
+
+pool.on('error', (err) => {
+  console.error('❌ PostgreSQL pool error:', err.message);
 });
 
 module.exports = {

@@ -1,148 +1,151 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const morgan = require('morgan');
 require('dotenv').config();
+// Express 5 handles async errors natively — no need for express-async-errors
 
-const db = require('./db');
+const db = require('./config/db');
+const { getRedisClient, disconnectRedis } = require('./config/redis');
+const { connectProducer, disconnectProducer, createTopics } = require('./config/kafka');
+const { startConsumers, stopConsumers } = require('./consumers/index');
+
+// Route imports
+const authRoutes = require('./routes/auth.routes');
+const userRoutes = require('./routes/user.routes');
+const transferRoutes = require('./routes/transfer.routes');
+const transactionRoutes = require('./routes/transaction.routes');
 
 const app = express();
 const port = process.env.PORT || 3000;
 
+// ─── Core Middleware ────────────────────────────
+app.use(helmet());
 app.use(cors());
+app.use(morgan('dev'));
 app.use(express.json());
 
-// GET all users
-app.get('/api/users', async (req, res) => {
+// ─── API Routes ─────────────────────────────────
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/transfer', transferRoutes);
+app.use('/api/transactions', transactionRoutes);
+
+// ─── Health Check ───────────────────────────────
+app.get('/health', async (req, res) => {
+  const healthStatus = { status: 'ok', uptime: process.uptime() };
+
+  // Check PostgreSQL
   try {
-    const { rows } = await db.query('SELECT id, username, balance_in_cents FROM users ORDER BY id ASC');
-    res.json(rows);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal server error' });
+    await db.query('SELECT 1');
+    healthStatus.postgres = 'connected';
+  } catch {
+    healthStatus.postgres = 'disconnected';
   }
+
+  // Check Redis
+  try {
+    const redis = getRedisClient();
+    await redis.ping();
+    healthStatus.redis = 'connected';
+  } catch {
+    healthStatus.redis = 'disconnected';
+  }
+
+  res.json(healthStatus);
 });
 
-// GET transaction history for a specific user
-app.get('/api/transactions/:userId', async (req, res) => {
-  const { userId } = req.params;
-  try {
-    const { rows } = await db.query(`
-      SELECT t.id, t.amount_in_cents, t.status, t.timestamp, t.idempotency_key,
-             u1.username AS sender, u2.username AS receiver
-      FROM transactions t
-      LEFT JOIN users u1 ON t.sender_id = u1.id
-      LEFT JOIN users u2 ON t.receiver_id = u2.id
-      WHERE t.sender_id = $1 OR t.receiver_id = $1
-      ORDER BY t.timestamp DESC
-    `, [userId]);
-    res.json(rows);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// POST transfer money with ACID Transactions and Row-Level Locking
-app.post('/api/transfer', async (req, res) => {
-  const { senderId, receiverId, amount } = req.body;
-  const idempotencyKey = req.headers['idempotency-key'];
-
-  if (!senderId || !receiverId || !amount) {
-    return res.status(400).json({ error: 'Missing required fields' });
-  }
-
-  if (senderId === receiverId) {
-    return res.status(400).json({ error: 'Sender and receiver must be different' });
-  }
-
-  if (amount <= 0) {
-    return res.status(400).json({ error: 'Amount must be greater than zero' });
-  }
-
-  // Fast-path Idempotency Check
-  if (idempotencyKey) {
-    const existingTx = await db.query('SELECT * FROM transactions WHERE idempotency_key = $1', [idempotencyKey]);
-    if (existingTx.rows.length > 0) {
-      console.log(`Idempotency hit! Returning previous result for key ${idempotencyKey}`);
-      return res.json({ 
-        message: 'Transfer successful (Idempotency cache hit)', 
-        amount: existingTx.rows[0].amount_in_cents / 100,
-        isIdempotent: true 
-      });
-    }
-  }
-
-  // Get a dedicated client from the pool for our transaction
-  const client = await db.pool.connect();
-
-  try {
-    await client.query('BEGIN');
-
-    // To prevent deadlocks, always lock the row with the lower ID first
-    const firstId = Math.min(senderId, receiverId);
-    const secondId = Math.max(senderId, receiverId);
-
-    // Lock the rows for update. Concurrent requests trying to lock these rows will block here.
-    await client.query('SELECT * FROM users WHERE id = $1 FOR UPDATE', [firstId]);
-    await client.query('SELECT * FROM users WHERE id = $1 FOR UPDATE', [secondId]);
-
-    // Simulate Network Delay (for the Frontend Visualizer to show off the lock)
-    if (req.query.delay === 'true') {
-      console.log('Simulating 3 second transaction delay...');
-      await new Promise(resolve => setTimeout(resolve, 3000));
-    }
-
-    // Check sender's balance
-    const senderRes = await client.query('SELECT balance_in_cents FROM users WHERE id = $1', [senderId]);
-    if (senderRes.rows.length === 0) {
-      throw new Error('Sender not found');
-    }
-
-    const senderBalance = senderRes.rows[0].balance_in_cents;
-    if (senderBalance < amount) {
-      await client.query('ROLLBACK');
-      return res.status(400).json({ error: 'Insufficient funds' });
-    }
-
-    // Deduct from sender
-    await client.query('UPDATE users SET balance_in_cents = balance_in_cents - $1 WHERE id = $2', [amount, senderId]);
-
-    // Add to receiver
-    await client.query('UPDATE users SET balance_in_cents = balance_in_cents + $1 WHERE id = $2', [amount, receiverId]);
-
-    // Record the transaction with Idempotency Key
-    await client.query(
-      'INSERT INTO transactions (sender_id, receiver_id, amount_in_cents, status, idempotency_key) VALUES ($1, $2, $3, $4, $5)',
-      [senderId, receiverId, amount, 'completed', idempotencyKey]
-    );
-
-    await client.query('COMMIT');
-    res.json({ message: 'Transfer successful', amount });
-
-  } catch (err) {
-    await client.query('ROLLBACK');
-    
-    // Postgres Unique Violation error code is '23505'
-    if (err.code === '23505' && err.constraint === 'transactions_idempotency_key_key') {
-      console.log('Concurrent retry detected and blocked by database UNIQUE constraint.');
-      return res.json({ 
-        message: 'Transfer successful (Idempotency cache hit)', 
-        amount: req.body.amount,
-        isIdempotent: true 
-      });
-    }
-
-    console.error('Transaction failed, rolled back:', err);
-    res.status(500).json({ error: 'Transaction failed' });
-  } finally {
-    client.release();
-  }
-});
-
-// Basic health check route
+// ─── Root Route ─────────────────────────────────
 app.get('/', (req, res) => {
-  res.send('AtomicPay API is running!');
+  res.json({
+    name: 'AtomicPay API',
+    version: '2.0.0',
+    docs: '/health',
+  });
 });
 
-app.listen(port, () => {
-  console.log(`Server running on http://localhost:${port}`);
+// ─── Global Error Handler ───────────────────────
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({ error: 'Internal server error' });
 });
+
+// ─── Server Startup ─────────────────────────────
+async function startServer() {
+  try {
+    // 1. Test PostgreSQL connection
+    await db.query('SELECT 1');
+    console.log('✅ PostgreSQL connected');
+
+    // 2. Initialize Redis
+    getRedisClient();
+
+    // 3. Create Kafka topics
+    try {
+      await createTopics([
+        { topic: 'payment.events', numPartitions: 3 },
+      ]);
+    } catch (err) {
+      console.warn('⚠️ Kafka topic creation skipped (Kafka may not be running):', err.message);
+    }
+
+    // 4. Connect Kafka producer
+    try {
+      await connectProducer();
+    } catch (err) {
+      console.warn('⚠️ Kafka producer connection skipped:', err.message);
+    }
+
+    // 5. Start Kafka consumers
+    try {
+      await startConsumers();
+    } catch (err) {
+      console.warn('⚠️ Kafka consumers skipped:', err.message);
+    }
+
+    // 6. Start Express server
+    app.listen(port, () => {
+      console.log(`\n🚀 AtomicPay v2.0 running on http://localhost:${port}`);
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('  Endpoints:');
+      console.log('  POST /api/auth/register');
+      console.log('  POST /api/auth/login');
+      console.log('  POST /api/auth/logout');
+      console.log('  GET  /api/auth/me');
+      console.log('  GET  /api/users');
+      console.log('  GET  /api/users/search?q=...');
+      console.log('  POST /api/transfer');
+      console.log('  GET  /api/transfer/:id/status');
+      console.log('  GET  /api/transactions');
+      console.log('  GET  /api/transactions/:id/events');
+      console.log('  GET  /health');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+    });
+  } catch (err) {
+    console.error('❌ Failed to start server:', err.message);
+    process.exit(1);
+  }
+}
+
+// ─── Graceful Shutdown ──────────────────────────
+async function shutdown(signal) {
+  console.log(`\n${signal} received. Shutting down gracefully...`);
+  try {
+    await stopConsumers();
+    await disconnectProducer();
+    await disconnectRedis();
+    await db.pool.end();
+    console.log('✅ All connections closed. Goodbye!');
+    process.exit(0);
+  } catch (err) {
+    console.error('Error during shutdown:', err);
+    process.exit(1);
+  }
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
+
+startServer();
+
+module.exports = app;

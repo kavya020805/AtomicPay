@@ -1,20 +1,29 @@
 {
-  "name": "backend",
-  "version": "1.0.0",
-  "main": "index.js",
+  "name": "atomicpay-backend",
+  "version": "2.0.0",
+  "main": "src/server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "seed": "node src/seed.js",
-    "start": "npm run seed && node src/server.js"
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "consumers": "node src/consumers/index.js"
   },
-  "keywords": [],
+  "keywords": ["payments", "p2p", "kafka", "redis"],
   "author": "",
   "license": "ISC",
-  "description": "",
+  "description": "AtomicPay v2.0 — Production-grade P2P payment backend with Redis & Kafka",
   "dependencies": {
+    "bcryptjs": "^3.0.2",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "pg": "^8.22.0"
+    "helmet": "^8.1.0",
+    "ioredis": "^5.6.1",
+    "jsonwebtoken": "^9.0.2",
+    "kafkajs": "^2.2.4",
+    "morgan": "^1.10.0",
+    "pg": "^8.22.0",
+    "uuid": "^11.1.0"
   }
 }

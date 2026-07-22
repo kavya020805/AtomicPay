@@ -3,85 +3,89 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import UserSearch from './UserSearch';
+import { Send } from 'lucide-react';
 
-export default function TransferForm({ users, onTransfer, isProcessing }) {
-  const [receiverId, setReceiverId] = useState('');
+export default function TransferForm({ onTransfer, isProcessing }) {
+  const [selectedUser, setSelectedUser] = useState(null);
   const [amount, setAmount] = useState('');
-  const [lastIdempotencyKey, setLastIdempotencyKey] = useState(null);
+  const [note, setNote] = useState('');
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!receiverId || !amount) return;
+    if (!selectedUser || !amount) return;
     
-    // Generate a fresh Idempotency Key for a normal transfer
-    const newKey = crypto.randomUUID();
-    setLastIdempotencyKey(newKey);
-    onTransfer(receiverId, amount, newKey);
-    
+    const idempotencyKey = crypto.randomUUID();
+    onTransfer(selectedUser.id, amount, idempotencyKey, note);
     setAmount('');
-  };
-
-  const handleRetry = () => {
-    if (!receiverId || !lastIdempotencyKey || isProcessing) return;
-    // Send exact same request with the exact same Idempotency Key
-    onTransfer(receiverId, amount || '100', lastIdempotencyKey);
+    setNote('');
   };
 
   return (
-    <Card className="bg-neutral-950 border-neutral-800">
+    <Card className="bg-neutral-950 border-neutral-800 overflow-hidden relative">
+      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-emerald-500/30 to-transparent" />
       <CardHeader>
-        <CardTitle className="text-xl text-white">Send Money</CardTitle>
+        <CardTitle className="text-xl text-white flex items-center gap-2">
+          <Send size={18} className="text-emerald-400" />
+          Send Money
+        </CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-5">
           
-          <div className="space-y-2">
-            <Label htmlFor="recipient" className="text-white">Recipient</Label>
-            <Select onValueChange={setReceiverId} value={receiverId} required>
-              <SelectTrigger id="recipient" className="w-full bg-black border-neutral-800 text-white">
-                <SelectValue placeholder="Select user..." />
-              </SelectTrigger>
-              <SelectContent className="bg-neutral-950 border-neutral-800 text-white">
-                {users.map(u => (
-                  <SelectItem key={u.id} value={u.id.toString()} className="text-white focus:bg-neutral-800 focus:text-white cursor-pointer">{u.username}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          {/* User Search */}
+          <UserSearch onSelect={setSelectedUser} selectedUser={selectedUser} />
+
+          {/* Amount */}
+          <div className="space-y-1.5">
+            <Label htmlFor="amount" className="text-neutral-400 text-sm">Amount (USD)</Label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500 text-sm font-medium">$</span>
+              <Input 
+                id="amount"
+                type="number" 
+                min="0.01" 
+                step="0.01"
+                placeholder="0.00" 
+                value={amount} 
+                onChange={(e) => setAmount(e.target.value)}
+                className="bg-black border-neutral-800 text-white pl-7 text-lg font-semibold"
+                required
+              />
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="amount" className="text-white">Amount (USD)</Label>
+          {/* Note */}
+          <div className="space-y-1.5">
+            <Label htmlFor="note" className="text-neutral-400 text-sm">Note (optional)</Label>
             <Input 
-              id="amount"
-              type="number" 
-              min="1" 
-              step="1"
-              placeholder="500" 
-              value={amount} 
-              onChange={(e) => setAmount(e.target.value)}
-              className="bg-black border-neutral-800 text-white"
-              required
+              id="note"
+              type="text"
+              placeholder="What's this for?"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              className="bg-black border-neutral-800 text-white text-sm"
             />
           </div>
 
-          <div className="flex flex-col gap-2">
-            <Button type="submit" disabled={isProcessing} className="w-full bg-white text-black hover:bg-neutral-200">
-              {isProcessing ? 'Processing Transaction...' : 'Confirm Transfer'}
-            </Button>
-            
-            {lastIdempotencyKey && (
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={handleRetry}
-                disabled={isProcessing}
-                className="w-full border-neutral-700 bg-transparent text-neutral-400 hover:bg-neutral-900 hover:text-white text-xs"
-              >
-                Simulate Network Retry (Double-Click)
-              </Button>
+          {/* Submit */}
+          <Button 
+            type="submit" 
+            disabled={isProcessing || !selectedUser || !amount} 
+            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-5 transition-all duration-200 disabled:opacity-40"
+          >
+            {isProcessing ? (
+              <span className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Processing...
+              </span>
+            ) : (
+              <span className="flex items-center gap-2">
+                <Send size={16} />
+                Send Payment
+              </span>
             )}
-          </div>
+          </Button>
 
         </form>
       </CardContent>
